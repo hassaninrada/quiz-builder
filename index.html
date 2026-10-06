@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>QuizForge AI — English & Urdu MCQ Generator</title>
+  <meta name="description" content="Upload English or Urdu images/text — AI auto-detects language and generates MCQs in English or Urdu. Share via QR code." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&family=Noto+Nastaliq+Urdu:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.0.3/dist/tesseract.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js"></script>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <div class="bg-orbs">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+  </div>
+
+  <!-- ══ HEADER ══════════════════════════════════════════════ -->
+  <header class="header">
+    <div class="header-inner">
+      <div class="logo">
+        <div class="logo-icon">⚡</div>
+        <span class="logo-text">Quiz<span class="accent">Forge</span></span>
+        <span class="logo-badge">EN · اردو</span>
+      </div>
+      <nav class="nav-tabs">
+        <button class="nav-tab active" data-tab="upload" id="nav-upload"><span class="tab-icon">🖼️</span><span class="tab-label"> Input</span></button>
+        <button class="nav-tab" data-tab="quiz"   id="nav-quiz">  <span class="tab-icon">📝</span><span class="tab-label"> Quiz</span></button>
+        <button class="nav-tab" data-tab="todo"   id="nav-todo">  <span class="tab-icon">✅</span><span class="tab-label"> To-Do</span><span class="todo-badge" id="todo-badge" style="display:none">0</span></button>
+        <button class="nav-tab" data-tab="share"  id="nav-share"> <span class="tab-icon">📲</span><span class="tab-label"> Share</span></button>
+      </nav>
+    </div>
+  </header>
+
+  <main class="main">
+
+    <!-- ══ INPUT TAB ════════════════════════════════════════ -->
+    <section class="tab-content active" id="tab-upload">
+
+      <div class="upload-hero">
+        <h1 class="hero-title">Images &amp; Text → <span class="gradient-text">Smart MCQs</span></h1>
+        <p class="hero-sub">English or Urdu — AI auto-detects language &amp; generates perfect MCQ questions</p>
+        <!-- Language badges -->
+        <div class="lang-badges">
+          <span class="lang-badge en">🇬🇧 English</span>
+          <span class="lang-divider">+</span>
+          <span class="lang-badge ur">🇵🇰 اردو</span>
+        </div>
+      </div>
+
+      <!-- ── Input Mode Switcher ── -->
+      <div class="mode-switcher">
+        <button class="mode-btn active" id="mode-btn-both" onclick="setInputMode('both')">🖼️ + 📝 Images &amp; Text</button>
+        <button class="mode-btn" id="mode-btn-images" onclick="setInputMode('images')">🖼️ Images Only</button>
+        <button class="mode-btn" id="mode-btn-text" onclick="setInputMode('text')">📝 Text Only</button>
+      </div>
+
+      <!-- ── Language Selector ── -->
+      <div class="lang-selector-row">
+        <span class="lang-selector-label">🌐 Language:</span>
+        <div class="lang-selector">
+          <button class="lang-btn active" id="lang-auto" onclick="setLang('auto')">Auto-Detect</button>
+          <button class="lang-btn" id="lang-en"   onclick="setLang('en')">🇬🇧 English</button>
+          <button class="lang-btn" id="lang-ur"   onclick="setLang('ur')">🇵🇰 اردو Urdu</button>
+        </div>
+        <span class="detected-lang-badge" id="detected-lang-badge" style="display:none"></span>
+      </div>
+
+      <!-- ── IMAGE SECTION ── -->
+      <div id="image-section">
+        <!-- Big drop zone -->
+        <div class="mega-drop-zone" id="mega-drop-zone">
+          <div class="drop-inner">
+            <div class="drop-anim">🖼️</div>
+            <h2 class="drop-title">Drop Images Here</h2>
+            <p class="drop-sub">English books · Urdu textbooks · Notes · Screenshots · Any image with text<br/>Up to <strong>200 images</strong> at once — JPG · PNG · WEBP · BMP</p>
+            <div class="drop-examples">
+              <span>📖 English Book Page</span>
+              <span>📚 اردو کتاب</span>
+              <span>📝 Handwritten Notes</span>
+              <span>🖥️ Screenshot</span>
+            </div>
+            <input type="file" id="image-files-input" accept="image/*" multiple style="display:none" />
+            <button class="btn btn-primary btn-big" onclick="document.getElementById('image-files-input').click()">📂 Choose Images</button>
+            <p class="drop-hint">or drag &amp; drop anywhere on this page</p>
+          </div>
+        </div>
+
+        <!-- Processing panel -->
+        <div id="processing-panel" style="display:none">
+          <div class="action-bar">
+            <div class="action-info">
+              <span class="img-count-badge" id="img-count-badge">0 images</span>
+              <span class="ocr-summary" id="ocr-summary">Ready to extract text</span>
+            </div>
+            <div class="action-btns">
+              <button class="btn btn-outline btn-sm" onclick="document.getElementById('image-files-input').click()">➕ Add More</button>
+              <button class="btn btn-outline btn-sm btn-danger" onclick="clearAllImages()">🗑️ Clear All</button>
+              <button class="btn btn-primary btn-sm" id="extract-btn" onclick="startBulkOCR()">🔍 Extract Text from All</button>
+            </div>
+          </div>
+          <div class="image-grid" id="image-grid"></div>
+          <div id="bulk-progress-section" style="display:none">
+            <div class="bulk-progress-card">
+              <div class="bulk-prog-header">
+                <span id="bulk-prog-label">🔍 Extracting text...</span>
+                <span id="bulk-prog-count">0 / 0</span>
+              </div>
+              <div class="bulk-prog-bar"><div class="bulk-prog-fill" id="bulk-prog-fill"></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── TEXT SECTION ── -->
+      <div id="text-section" style="display:none">
+        <div class="card text-input-card">
+          <div class="text-input-header">
+            <h3>📝 Paste Your Text</h3>
+            <div class="text-input-meta" id="text-input-meta">0 words</div>
+          </div>
+          <textarea id="direct-text"
+            class="big-textarea"
+            placeholder="Paste your study material here...&#10;&#10;English: Photosynthesis is the process by which plants convert light energy...&#10;&#10;اردو: فوٹو سنتھیسز وہ عمل ہے جس سے پودے روشنی کو..."
+            oninput="onTextInput()"></textarea>
+          <div class="text-lang-detect" id="text-lang-detect"></div>
+        </div>
+      </div>
+
+      <!-- ── EXTRACTED / COMBINED TEXT PREVIEW ── -->
+      <div class="extracted-panel" id="extracted-panel" style="display:none">
+        <div class="extracted-header-row">
+          <div>
+            <h3>📄 Content Ready</h3>
+            <span class="extracted-stats" id="extracted-stats"></span>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+            <span class="lang-detected-pill" id="lang-detected-pill"></span>
+            <button class="btn btn-outline btn-sm" onclick="copyAllText()">📋 Copy</button>
+            <button class="btn btn-outline btn-sm" onclick="toggleExtracted()">👁 Toggle</button>
+          </div>
+        </div>
+        <div class="extracted-text-preview" id="extracted-text-preview"></div>
+      </div>
+
+      <!-- ── QUIZ SETTINGS ── -->
+      <div class="quiz-settings-bar" id="quiz-settings-bar" style="display:none">
+        <div class="card settings-inline-card">
+          <h3>⚙️ Quiz Settings</h3>
+          <div class="settings-inline-grid">
+
+            <div class="setting-item">
+              <label class="setting-label">Questions</label>
+              <div class="count-selector">
+                <button class="count-btn active" data-count="100" onclick="setCount(100)">100</button>
+                <button class="count-btn" data-count="150" onclick="setCount(150)">150</button>
+                <button class="count-btn" data-count="200" onclick="setCount(200)">200</button>
+                <button class="count-btn" data-count="custom" onclick="setCount('custom')">Custom</button>
+              </div>
+              <div id="custom-count-input" style="display:none;margin-top:8px">
+                <input type="number" id="custom-count" class="text-input-sm" min="10" max="500" placeholder="10–500" />
+              </div>
+            </div>
+
+            <div class="setting-item">
+              <label class="setting-label">Quiz Title</label>
+              <input type="text" id="quiz-title" class="text-input-sm" placeholder="My Quiz / میرا کوئز" />
+            </div>
+
+            <div class="setting-item">
+              <label class="setting-label">Difficulty</label>
+              <select id="difficulty" class="select-input">
+                <option value="mixed">Mixed / ملا جلا</option>
+                <option value="easy">Easy / آسان</option>
+                <option value="medium">Medium / درمیانہ</option>
+                <option value="hard">Hard / مشکل</option>
+              </select>
+            </div>
+
+            <div class="setting-item">
+              <label class="setting-label">Options per Q</label>
+              <select id="option-count" class="select-input">
+                <option value="4">4 Options</option>
+                <option value="3">3 Options</option>
+                <option value="5">5 Options</option>
+              </select>
+            </div>
+
+            <div class="setting-item">
+              <label class="setting-label">Timer per Q</label>
+              <div class="count-selector">
+                <button class="count-btn active" data-timer="30" onclick="setTimer(30)">30s</button>
+                <button class="count-btn" data-timer="60" onclick="setTimer(60)">1min</button>
+                <button class="count-btn" data-timer="0" onclick="setTimer(0)">∞</button>
+              </div>
+            </div>
+
+            <div class="setting-item">
+              <label class="setting-label">AI Engine</label>
+              <select id="ai-engine" class="select-input" onchange="toggleApiKey()">
+                <option value="builtin">Built-in AI (No key needed)</option>
+                <option value="gemini">Google Gemini API (Best quality)</option>
+              </select>
+              <div id="api-key-section" style="display:none;margin-top:8px">
+                <input type="password" id="gemini-api-key" class="text-input-sm" placeholder="Gemini API key — ai.google.dev" />
+                <p class="setting-hint">Free key at <a href="https://ai.google.dev" target="_blank">ai.google.dev</a></p>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- MCQ Language override -->
+          <div class="mcq-lang-row">
+            <label class="setting-label">MCQ Output Language</label>
+            <div class="count-selector">
+              <button class="count-btn active" data-mcqlang="auto" onclick="setMcqLang('auto')">Auto-Detect</button>
+              <button class="count-btn" data-mcqlang="en" onclick="setMcqLang('en')">🇬🇧 English</button>
+              <button class="count-btn" data-mcqlang="ur" onclick="setMcqLang('ur')">🇵🇰 Urdu اردو</button>
+            </div>
+          </div>
+
+          <button class="btn btn-primary btn-generate-big" id="generate-btn" onclick="generateQuiz()">
+            ⚡ Generate Quiz
+          </button>
+        </div>
+      </div>
+
+      <!-- Manual generate text button (text-only mode) -->
+      <div id="text-generate-btn-row" style="display:none;margin-top:16px;text-align:center">
+        <button class="btn btn-primary btn-big" onclick="prepareTextForQuiz()">⚡ Use This Text for Quiz</button>
+      </div>
+
+    </section>
+
+    <!-- ══ QUIZ TAB ══════════════════════════════════════════ -->
+    <section class="tab-content" id="tab-quiz">
+      <div id="no-quiz-state" class="empty-state">
+        <div class="empty-icon">📋</div>
+        <h2>No Quiz Yet / کوئی کوئز نہیں</h2>
+        <p>Upload images or paste text to generate a quiz. Scan a QR code to load a shared quiz.</p>
+        <button class="btn btn-primary" onclick="switchTab('upload')">📸 Add Images / Text</button>
+      </div>
+
+      <div id="quiz-ready-state" style="display:none">
+        <div class="quiz-hero-box">
+          <div class="quiz-hero-icon" id="quiz-lang-flag">🎯</div>
+          <h2 id="quiz-display-title" class="quiz-title-display">My Quiz</h2>
+          <div class="quiz-meta">
+            <span class="meta-badge">📝 <span id="q-total">0</span> Qs</span>
+            <span class="meta-badge">⏱️ <span id="q-timer-display">30s</span></span>
+            <span class="meta-badge" id="quiz-lang-badge">🇬🇧 English</span>
+          </div>
+          <button class="btn btn-primary btn-xl" onclick="startQuiz()">▶ Start Quiz / شروع کریں</button>
+        </div>
+      </div>
+
+      <div id="quiz-inprogress" style="display:none">
+        <div class="quiz-topbar">
+          <div class="quiz-prog-info"><span id="current-q-num">1</span> / <span id="total-q-num">100</span></div>
+          <div class="quiz-live-score">Score: <span id="live-score">0</span></div>
+          <div class="quiz-timer" id="quiz-timer">30</div>
+        </div>
+        <div class="quiz-prog-track"><div class="quiz-prog-fill" id="quiz-prog-fill"></div></div>
+        <div class="question-card" id="question-card">
+          <div class="q-tag" id="q-number-label">Question 1</div>
+          <div class="q-text" id="question-text">Loading...</div>
+          <div class="options-grid" id="options-grid"></div>
+        </div>
+        <div class="quiz-foot-btns">
+          <button class="btn btn-outline" onclick="skipQuestion()">Skip →</button>
+          <button class="btn btn-outline btn-quit" onclick="quitQuiz()">✕ Quit</button>
+        </div>
+      </div>
+
+      <div id="quiz-results" style="display:none">
+        <div class="results-card">
+          <div class="results-trophy" id="results-trophy">🏆</div>
+          <h2 class="results-title">Quiz Complete!</h2>
+          <div class="results-score-ring">
+            <svg viewBox="0 0 120 120" class="score-ring-svg">
+              <defs><linearGradient id="ring-gradient" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#7c3aed"/><stop offset="100%" stop-color="#06b6d4"/></linearGradient></defs>
+              <circle cx="60" cy="60" r="50" class="ring-bg"/>
+              <circle cx="60" cy="60" r="50" class="ring-fill" id="ring-fill"/>
+            </svg>
+            <div class="score-center">
+              <span class="score-pct" id="score-pct">0%</span>
+              <span class="score-label">Score</span>
+            </div>
+          </div>
+          <div class="results-stats">
+            <div class="stat-item correct">✅ <span id="res-correct">0</span></div>
+            <div class="stat-item wrong">❌ <span id="res-wrong">0</span></div>
+            <div class="stat-item skipped">⏭️ <span id="res-skipped">0</span></div>
+          </div>
+          <div class="results-grade" id="results-grade">Excellent!</div>
+          <div class="result-actions">
+            <button class="btn btn-primary" onclick="restartQuiz()">🔄 Retry</button>
+            <button class="btn btn-outline" onclick="reviewAnswers()">👁 Review</button>
+            <button class="btn btn-outline" onclick="switchTab('share')">📲 Share</button>
+          </div>
+        </div>
+        <div id="answer-review" style="display:none;margin-top:24px">
+          <h3 style="margin-bottom:14px">Answer Review / جوابات کا جائزہ</h3>
+          <div id="review-list"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ TO-DO TAB ════════════════════════════════════════ -->
+    <section class="tab-content" id="tab-todo">
+      <div class="upload-hero">
+        <h1 class="hero-title">Study <span class="gradient-text">To-Do</span></h1>
+        <p class="hero-sub">Track tasks / اپنے مطالعے کے کام ٹریک کریں</p>
+      </div>
+      <div class="todo-container">
+        <div class="card todo-add-card">
+          <div class="todo-input-row">
+            <input type="text" id="todo-input" class="todo-text-input" placeholder="Add task / کام شامل کریں..." onkeydown="if(event.key==='Enter') addTodo()" />
+            <select id="todo-priority" class="todo-priority-select">
+              <option value="low">🟢 Low</option>
+              <option value="medium" selected>🟡 Medium</option>
+              <option value="high">🔴 High</option>
+            </select>
+            <button class="btn btn-primary" onclick="addTodo()">+ Add</button>
+          </div>
+          <div class="todo-filters">
+            <button class="filter-btn active" data-filter="all" onclick="filterTodos('all')">All</button>
+            <button class="filter-btn" data-filter="pending" onclick="filterTodos('pending')">Pending</button>
+            <button class="filter-btn" data-filter="done" onclick="filterTodos('done')">Done</button>
+            <button class="filter-btn" data-filter="high" onclick="filterTodos('high')">🔴 High</button>
+          </div>
+        </div>
+        <div id="todo-list" class="todo-list"></div>
+        <div class="todo-stats-bar">
+          <span id="todo-pending-count">0 pending</span><span>·</span>
+          <span id="todo-done-count">0 done</span>
+          <button class="btn btn-xs btn-danger" onclick="clearDoneTodos()">Clear Done</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ SHARE TAB ════════════════════════════════════════ -->
+    <section class="tab-content" id="tab-share">
+      <div class="upload-hero">
+        <h1 class="hero-title">Share <span class="gradient-text">Quiz</span></h1>
+        <p class="hero-sub">QR کوڈ اسکین کریں — کسی بھی فون پر کوئز کھولیں</p>
+      </div>
+      <div id="no-quiz-share" class="empty-state">
+        <div class="empty-icon">📲</div>
+        <h2>No Quiz to Share</h2>
+        <p>Generate a quiz first.</p>
+        <button class="btn btn-primary" onclick="switchTab('upload')">📸 Add Images / Text</button>
+      </div>
+      <div id="share-panel" style="display:none">
+        <div id="local-file-warning" style="display:none;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:var(--red);padding:12px;border-radius:8px;margin-bottom:16px;font-size:0.85rem;line-height:1.5;">
+          <strong>⚠️ Local File Detected:</strong> You are running this file directly from your computer (file://). 
+          Scanning the QR code on a phone won't work because the phone can't access your computer's files. 
+          To share, use the <strong>WhatsApp</strong> button, or host this website online (e.g. GitHub Pages).
+        </div>
+        <div class="share-grid">
+          <div class="card share-card">
+            <h3>📱 QR Code</h3>
+            <p class="share-desc">Scan on any phone to open &amp; take the quiz instantly</p>
+            <div class="qr-container" id="qr-container"></div>
+            <div class="share-quiz-info"><strong id="share-quiz-title">Quiz</strong><span id="share-quiz-count">100 questions</span></div>
+            <button class="btn btn-outline btn-sm" onclick="downloadQR()">⬇️ Download QR</button>
+          </div>
+          <div class="card share-card">
+            <h3>🔗 Shareable Link</h3>
+            <p class="share-desc">Copy link → send via WhatsApp, email, etc.</p>
+            <div class="link-box"><span id="share-link-text" class="link-text">Generating...</span><button class="btn btn-xs" onclick="copyLink()">Copy</button></div>
+            <div class="share-actions-row">
+              <button class="btn btn-whatsapp" onclick="shareWhatsApp()">💬 WhatsApp</button>
+              <button class="btn btn-outline btn-sm" onclick="shareNative()">📤 Share</button>
+            </div>
+            <div class="share-note">⚡ No server — quiz data is inside the link!</div>
+          </div>
+          <div class="card share-card">
+            <h3>📥 Load Shared Quiz</h3>
+            <p class="share-desc">Paste a quiz link to load on this device</p>
+            <textarea id="import-link" class="text-area" rows="4" placeholder="Paste quiz link here..."></textarea>
+            <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:10px" onclick="importFromLink()">Load Quiz</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Generation overlay -->
+  <div class="gen-overlay" id="gen-overlay" style="display:none">
+    <div class="gen-card">
+      <div class="gen-spinner"></div>
+      <h3 id="gen-title">Generating...</h3>
+      <p id="gen-sub">Please wait</p>
+      <div class="gen-bar"><div class="gen-fill" id="gen-fill"></div></div>
+      <span id="gen-pct" class="gen-pct">0%</span>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+  <script src="app.js"></script>
+</body>
+</html>
