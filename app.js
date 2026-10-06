@@ -1115,16 +1115,32 @@ function renderSharePanel() {
     timerSeconds:App.quiz.timerSeconds, lang:App.quiz.lang,
     questions:App.quiz.questions.map(q=>({q:q.question,o:q.options,c:q.correct,d:q.difficulty,l:q.lang}))
   };
-  const encoded = toBase64(JSON.stringify(payload));
-  const url = location.href.split('#')[0]+'#quiz='+encoded;
+  
+  // Use LZString for massive compression (makes URLs 70% smaller)
+  const encoded = LZString.compressToEncodedURIComponent(JSON.stringify(payload));
+  const baseLink = location.href.split('#')[0];
+  
+  const noteEl = document.getElementById('local-file-warning');
+  if (baseLink.startsWith('file://') && noteEl) {
+    noteEl.style.display = 'block';
+  } else if (noteEl) {
+    noteEl.style.display = 'none';
+  }
+
+  const url = baseLink + '#quiz=' + encoded;
   document.getElementById('share-link-text').textContent = url;
 
   const qrEl = document.getElementById('qr-container');
   qrEl.innerHTML = '';
-  try {
-    new QRCode(qrEl,{text:url,width:210,height:210,colorDark:'#1e293b',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.M});
-  } catch(e) {
-    qrEl.innerHTML='<p style="color:var(--muted);padding:16px;font-size:.78rem">QR unavailable — use link.</p>';
+  
+  if (url.length > 2500) {
+    qrEl.innerHTML='<p style="color:var(--yellow);padding:12px;font-size:.8rem;border:1px solid rgba(245, 158, 11, 0.3);background:rgba(245, 158, 11, 0.1);border-radius:8px">⚠️ Quiz is too large to fit in a QR code. Please use the "Copy Link" or "WhatsApp" button below.</p>';
+  } else {
+    try {
+      new QRCode(qrEl,{text:url,width:210,height:210,colorDark:'#1e293b',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.L});
+    } catch(e) {
+      qrEl.innerHTML='<p style="color:var(--yellow);padding:12px;font-size:.8rem">⚠️ Quiz too large for QR. Use the Shareable Link below.</p>';
+    }
   }
 }
 
@@ -1137,7 +1153,11 @@ function importFromLink(){const r=document.getElementById('import-link').value.t
 function checkURLForQuiz(){if(location.hash.startsWith('#quiz='))loadFromEncoded(location.hash.slice(6));}
 function loadFromEncoded(enc){
   try {
-    const data=JSON.parse(fromBase64(enc));
+    let jsonStr = '';
+    try { jsonStr = LZString.decompressFromEncodedURIComponent(enc); } catch(e) {}
+    if (!jsonStr) jsonStr = fromBase64(enc); // fallback for older links
+    
+    const data=JSON.parse(jsonStr);
     App.quiz={id:uid(),title:data.title||'Shared Quiz',difficulty:data.difficulty||'mixed',
       timerSeconds:data.timerSeconds??30,lang:data.lang||'en',
       questions:data.questions.map((q,i)=>({id:i+1,question:q.q,options:q.o,correct:q.c,difficulty:q.d||'medium',lang:q.l||data.lang||'en'}))};
@@ -1177,3 +1197,20 @@ function showToast(msg,type=''){
   clearTimeout(_toastTimer);
   _toastTimer=setTimeout(()=>el.classList.remove('show'),3200);
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
